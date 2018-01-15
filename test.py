@@ -91,7 +91,7 @@ if __name__=='__main__':
             s=float(minimum_resolution)/min(image_dims)
             image_dims=(int(round(image_dims[0]*s)),int(round(image_dims[1]*s)))
             o=utils.im_resize(o,image_dims)
-        XF=model.mean_F([o]) #求图片的平均的特征向量
+        XF=model.get_Deep_Feature([o]) #求图片的平均的特征向量
         original.append(o)
         # for each transform
         for j,(a,b) in enumerate(pairs):
@@ -102,8 +102,8 @@ if __name__=='__main__':
             Q=Q[0]
             xP=[x.replace('lfw','lfw_aegan') for x in P]
             xQ=[x.replace('lfw','lfw_aegan') for x in Q]
-            PF=model.mean_F(utils.image_feed(xP[:K],image_dims))
-            QF=model.mean_F(utils.image_feed(xQ[:K],image_dims))
+            PF=model.get_Deep_Feature(utils.image_feed(xP[:K],image_dims))
+            QF=model.get_Deep_Feature(utils.image_feed(xQ[:K],image_dims))
             if config.scaling=='beta':
                 WF=(QF-PF)/((QF-PF)**2).mean()
             elif config.scaling=='none':
@@ -114,7 +114,7 @@ if __name__=='__main__':
             for delta in delta_params:
                 print(xX,b,delta)
                 t2=time.time()
-                Y=model.F_inverse(XF+WF*delta,max_iter=max_iter,initial_image=init)
+                Y=model.Deep_Feature_inverse(XF+WF*delta,max_iter=max_iter,initial_image=init)
                 t3=time.time()
                 print('{} minutes to reconstruct'.format((t3-t2)/60.0))
                 result[-1].append(Y)
