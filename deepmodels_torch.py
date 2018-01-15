@@ -116,7 +116,7 @@ class Vgg19g(nn.Module):
 
         model_urls = 'https://www.dropbox.com/s/cecy6wtjy97wt3d/vgg19g-4aff041b.pth?dl=1'
         if pretrained:
-            state_dict = torch.utils.model_zoo.load_url(model_urls)
+            state_dict = torch.utils.model_zoo.load_url(model_urls, model_dir='models/')
             self.load_state_dict(state_dict)
 
     def forward(self, x):
