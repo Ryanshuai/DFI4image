@@ -85,12 +85,12 @@ if __name__=='__main__':
     for i in range(len(X)):
         result.append([])
         xX=X[i].decode().replace('lfw','lfw_aegan')
-        o=utils.read(xX)
+        o=utils.im_read(xX)
         image_dims=o.shape[:2]
         if min(image_dims)<minimum_resolution:
             s=float(minimum_resolution)/min(image_dims)
             image_dims=(int(round(image_dims[0]*s)),int(round(image_dims[1]*s)))
-            o=utils.resize(o,image_dims)
+            o=utils.im_resize(o,image_dims)
         XF=model.mean_F([o]) #求图片的平均的特征向量
         original.append(o)
         # for each transform
@@ -125,7 +125,7 @@ if __name__=='__main__':
     if 'color' in postprocess:
         result=utils.color_match(numpy.expand_dims(original,1),result)
     m=utils.montage(numpy.concatenate([numpy.expand_dims(original,1),result],axis=1))
-    utils.write('results/demo1.png',m)
+    utils.im_write('results/demo1.png',m)
     print('Output is results/demo1.png')
     t1=time.time()
     print('{} minutes ({} minutes per image).'.format((t1-t0)/60.0,(t1-t0)/60.0/result.shape[0]/result.shape[1]))

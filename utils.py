@@ -7,7 +7,7 @@ import PIL.ImageFont
 
 
 
-def read(ipath,dtype=numpy.float32):
+def im_read(ipath,dtype=numpy.float32):
     '''
     Returns a H x W x 3 RGB image in the range of [0,1].
     '''
@@ -16,7 +16,7 @@ def read(ipath,dtype=numpy.float32):
         img=img.convert('RGB')
     return numpy.asarray(img,dtype=dtype)/255.0
 
-def write(opath,I,**kwargs):
+def im_write(opath,I,**kwargs):
     '''
     Given a H x W x 3 RGB image it is clipped to the range [0,1] and
     written to an 8-bit image file.
@@ -33,7 +33,7 @@ def write(opath,I,**kwargs):
         # expectation that the default save options are reasonable.
         raise ValueError('Unknown image extension ({})'.format(ext))
 
-def resize(I,shape):
+def im_resize(I,shape):
     image=PIL.Image.fromarray((I*255).clip(0,255).astype(numpy.uint8))
     if shape[0]<I.shape[0] and shape[1]<I.shape[1]:
         image=image.resize((shape[1],shape[0]),PIL.Image.BICUBIC)
@@ -75,9 +75,9 @@ def image_feed(S,image_dims):
     Given a list of file paths and a 2-tuple of (H, W), yields H x W x 3 images.
     '''
     for x in S:
-        I=read(x)
+        I=im_read(x)
         if I.shape[:2]!=image_dims:
-            yield resize(I,tuple(image_dims))
+            yield im_resize(I,tuple(image_dims))
         else:
             yield I
 

@@ -188,72 +188,71 @@ class vgg19g_torch(object):
         return flattened_features.numpy()
 
     def Deep_Feature_inverse(self, Feature, initial_image, **options):  #得到一个深度特征对应的图片
-        def F_inverse(self, Feature, initial_image, **options):
-            verbose = options.get('verbose', 0)
-            x = torch.from_numpy(numpy.array(initial_image))
-            x = x.permute(2, 0, 1)  # 交换轴
-            orig_size = x.size()
+        verbose = options.get('verbose', 0)
+        x = torch.from_numpy(numpy.array(initial_image))
+        x = x.permute(2, 0, 1)  # 交换轴
+        orig_size = x.size()
 
-            x = self.forward_transform(x)  #
-            x = x.contiguous().view(1, *x.size())  # 使连续，并改变尺寸
+        x = self.forward_transform(x)  #
+        x = x.contiguous().view(1, *x.size())  # 使连续，并改变尺寸
 
-            with torch.cuda.device(self.device_id):
-                self.forward_model.cuda()
-                recon_var = nn.Parameter(x.cuda(), requires_grad=True)  # 使得recon_var为一个参数
+        with torch.cuda.device(self.device_id):
+            self.forward_model.cuda()
+            recon_var = nn.Parameter(x.cuda(), requires_grad=True)  # 使得recon_var为一个参数
 
-                # Get size of features
-                orig_feature_vars = self.forward_model(recon_var)
-                sizes = ([f.data[:1].size() for f in orig_feature_vars])
-                cat_offsets = torch.cat([torch.Tensor([0]),
-                                       torch.cumsum(torch.Tensor([f.data[:1].nelement() for f in orig_feature_vars]),
-                                                    0)])
+            # Get size of features
+            orig_feature_vars = self.forward_model(recon_var)
+            sizes = ([f.data[:1].size() for f in orig_feature_vars])
+            cat_offsets = torch.cat([torch.Tensor([0]),
+                                   torch.cumsum(torch.Tensor([f.data[:1].nelement() for f in orig_feature_vars]),
+                                                0)])
 
-              # Reshape provided features to match original features
-                cat_features = torch.from_numpy(Feature).view(-1)
-                features = tuple(Variable(cat_features[int(start_i):int(end_i)].view(size)).cuda()
-                               for size, start_i, end_i in zip(sizes, cat_offsets[:-1], cat_offsets[1:]))
+          # Reshape provided features to match original features
+            cat_features = torch.from_numpy(Feature).view(-1)
+            features = tuple(Variable(cat_features[int(start_i):int(end_i)].view(size)).cuda()
+                           for size, start_i, end_i in zip(sizes, cat_offsets[:-1], cat_offsets[1:]))
 
-                # Create optimizer and loss functions
-                optimizer = torch.optim.LBFGS(
-                params=[recon_var],
-                max_iter=options['max_iter'] if 'max_iter' in options else self.max_iter,
-                )
-                optimizer.n_steps = 0
-                criterion3 = nn.MSELoss(size_average=False).cuda()
-                criterion4 = nn.MSELoss(size_average=False).cuda()
-                criterion5 = nn.MSELoss(size_average=False).cuda()
-                criterion_tv = TVLoss().cuda()
+            # Create optimizer and loss functions
+            optimizer = torch.optim.LBFGS(
+            params=[recon_var],
+            max_iter=options['max_iter'] if 'max_iter' in options else self.max_iter,
+            )
+            optimizer.n_steps = 0
+            criterion3 = nn.MSELoss(size_average=False).cuda()
+            criterion4 = nn.MSELoss(size_average=False).cuda()
+            criterion5 = nn.MSELoss(size_average=False).cuda()
+            criterion_tv = TVLoss().cuda()
 
-                # Optimize
-                def step():
-                    self.forward_model.zero_grad()
-                    if recon_var.grad is not None:
-                        recon_var.grad.data.fill_(0)
+            # Optimize
+            def step():
+                self.forward_model.zero_grad()
+                if recon_var.grad is not None:
+                    recon_var.grad.data.fill_(0)
 
-                    output_var = self.forward_model(recon_var)
-                    loss3 = criterion3(output_var[0], features[0])
-                    loss4 = criterion4(output_var[1], features[1])
-                    loss5 = criterion5(output_var[2], features[2])
-                    loss_tv = self.tv_lambda * criterion_tv(recon_var)
-                    loss = loss3 + loss4 + loss5 + loss_tv
-                    loss.backward()
+                output_var = self.forward_model(recon_var)
+                loss3 = criterion3(output_var[0], features[0])
+                loss4 = criterion4(output_var[1], features[1])
+                loss5 = criterion5(output_var[2], features[2])
+                loss_tv = self.tv_lambda * criterion_tv(recon_var)
+                loss = loss3 + loss4 + loss5 + loss_tv
+                loss.backward()
 
-                    if verbose and optimizer.n_steps % 25 == 0:
-                        print('Step: %d  total: %.1f  conv3: %.1f  conv4: %.1f  conv5: %.1f  tv: %.3f' %
-                            (optimizer.n_steps, loss.data[0], loss3.data[0], loss4.data[0], loss5.data[0],
-                             loss_tv.data[0]))
+                if verbose and optimizer.n_steps % 25 == 0:
+                    print('Step: %d  total: %.1f  conv3: %.1f  conv4: %.1f  conv5: %.1f  tv: %.3f' %
+                        (optimizer.n_steps, loss.data[0], loss3.data[0], loss4.data[0], loss5.data[0],
+                         loss_tv.data[0]))
 
-                    optimizer.n_steps += 1
-                    return loss
+                optimizer.n_steps += 1
+                return loss
 
-                optimizer.step(step)
-                self.forward_model.cpu()
-                recon = recon_var.data[0].cpu()
+            optimizer.step(step)
+            self.forward_model.cpu()
+            recon = recon_var.data[0].cpu()
 
-            # Return the new image
-            recon = self.reverse_transform(recon)
-            recon = unfit_from_quantum(recon, orig_size)
-            recon = recon.squeeze()
-            recon = recon.permute(1, 2, 0)
-            return recon.numpy()
+        # Return the new image
+        recon = self.reverse_transform(recon)
+        recon = unfit_from_quantum(recon, orig_size)
+        recon = recon.squeeze()
+        recon = recon.permute(1, 2, 0)
+        return recon.numpy()
 
