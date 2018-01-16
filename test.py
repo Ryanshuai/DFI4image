@@ -43,56 +43,47 @@ if __name__=='__main__':
     delta_list = [0.4]
     color_postprocess = True
 
+    test_image_paths=['images/lfw_aegan/Melchor_Cob_Castro/Melchor_Cob_Castro_0001.jpg',
+                      'images/lfw_aegan/John_Stockton/John_Stockton_0001.jpg',
+                      'images/lfw_aegan/Ralf_Schumacher/Ralf_Schumacher_0005.jpg',
+                      'images/lfw_aegan/Charlton_Heston/Charlton_Heston_0002.jpg',
+                      'images/lfw_aegan/Tom_Ridge/Tom_Ridge_0032.jpg',
+                      'images/lfw_aegan/Silvio_Berlusconi/Silvio_Berlusconi_0023.jpg']
+
+    attribute_pairs=[('Youth', 'Senior'), ('Mouth Closed', 'Mouth Slightly Open'),
+                     ('Mouth Closed', 'Mouth Slightly Open'),('Narrow Eyes', 'Eyes Open'), ('Pale Skin', 'Flushed Face'),
+                     ('Frowning', 'Smiling'),('No Beard', 'Mustache'), ('No Eyewear', 'Eyeglasses')]
+
     # load CUDA model
-    minimum_resolution=200
-    model=deepmodel.vgg19g_torch(device_id=0)
-
-    # read test data
-    data=numpy.load('tests/dmt2-lfw-multiple-attribute-test.npz')
-    pairs=list(data['pairs'][[0,1,2,4,5,6]]) # skip flushed face, not interesting
-    X=data['X']
-
-
-    # Set the free parameters
-    # Note: for LFW, 0.4*8.82 is approximately equivalent to beta=0.4
+    model=deepmodel.vgg19g_torch()
 
     result=[]
     original=[]
     # for each test image
-    for i in range(len(X)):
+    for path in test_image_paths:
         result.append([])
-        xX=X[i].decode().replace('lfw','lfw_aegan')
-        o=utils.im_read(xX)
-        image_dims=o.shape[:2]
-        if min(image_dims)<minimum_resolution:
-            s=float(minimum_resolution)/min(image_dims)
-            image_dims=(int(round(image_dims[0]*s)),int(round(image_dims[1]*s)))
-            o=utils.im_resize(o,image_dims)
-        XF=model.get_Deep_Feature([o]) #求图片的平均的特征向量
-        original.append(o)
+        im=utils.im_read(path)
+        image_size=im.shape[:2]
+        XF=model.get_Deep_Feature([im]) #求图片的平均的特征向量#TODO
+        original.append(im)
         # for each transform
-        for j,(a,b) in enumerate(pairs):
-            a = a.decode()
-            b = b.decode()
-            _,P,Q=make_manifolds(b,[a],[],X=X[i:i+1],N=1)
+        for j,(a,b) in enumerate(attribute_pairs):
+            _,P,Q=make_manifolds(b,[a],[],X=path,N=1)
             P=P[0]
             Q=Q[0]
             xP=[x.replace('lfw','lfw_aegan') for x in P]
             xQ=[x.replace('lfw','lfw_aegan') for x in Q]
-            PF=model.get_Deep_Feature(utils.im_generator(xP[:K],image_dims))
-            QF=model.get_Deep_Feature(utils.im_generator(xQ[:K],image_dims))
+            PF=model.get_Deep_Feature(utils.im_generator(xP[:K],image_size))
+            QF=model.get_Deep_Feature(utils.im_generator(xQ[:K],image_size))
             if True:
                 WF=(QF-PF)/((QF-PF)**2).mean()
             else:
                 WF=(QF-PF)
-            init=o
             # for each interpolation step
             for delta in delta_list:
-                print(xX,b,delta)
-                Y=model.Deep_Feature_inverse(XF+WF*delta,max_iter=max_iter,initial_image=init)
+                print(path,b,delta)
+                Y=model.Deep_Feature_inverse(XF+WF*delta,max_iter=max_iter,initial_image=im)
                 result[-1].append(Y)
-                max_iter=config.iter//2
-                init=Y
 
     result=numpy.asarray(result)
     original=numpy.asarray(original)

@@ -39,26 +39,6 @@ def montage(M,sep=0,canvas_value=0):
             canvas[i*(M.shape[2]+sep):i*(M.shape[2]+sep)+M.shape[2],j*(M.shape[3]+sep):j*(M.shape[3]+sep)+M.shape[3]]=M[i,j]
     return canvas
 
-def concatenate(X,axis,canvas_value=0,gravity=(-1)):
-    '''
-    Given a sequence of images, concatenate them along the given axis,
-    expanding the other axes as needed. If gravity is zero then the original
-    data will be centered in the output domain. Negative or positive gravity
-    will cause it to be flush with the lower or upper bound, respectively.
-    '''
-    outshape=[sum(x.shape[i] for x in X) if i==axis else max(x.shape[i] for x in X) for i in range(X[0].ndim)]
-    Y=[]
-    for x in X:
-        newshape=list(outshape)
-        newshape[axis]=x.shape[axis]
-        if gravity>0:
-            Y.append(numpy.pad(x,[(newshape[i]-x.shape[i],0) for i in range(x.ndim)],'constant',constant_values=canvas_value))
-        elif gravity==0:
-            Y.append(numpy.pad(x,[((newshape[i]-x.shape[i])//2,(newshape[i]-x.shape[i])-(newshape[i]-x.shape[i])//2) for i in range(x.ndim)],'constant',constant_values=canvas_value))
-        else:
-            Y.append(numpy.pad(x,[(0,newshape[i]-x.shape[i]) for i in range(x.ndim)],'constant',constant_values=canvas_value))
-    return numpy.concatenate(Y,axis=axis)
-
 def color_match(A,B):
     '''
     A is a rank 5 tensor (column of original images)
