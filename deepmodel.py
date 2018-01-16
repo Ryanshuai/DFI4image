@@ -160,7 +160,7 @@ class vgg19g_torch(object):
             pin_memory = True,
         )
 
-        with torch.cuda.device(self.device_id):
+        with torch.cuda.device(0):
             self.forward_model.cuda()
 
             for i, (input, _) in enumerate(loader):
@@ -192,7 +192,7 @@ class vgg19g_torch(object):
         x = self.forward_transform(x)  #
         x = x.contiguous().view(1, *x.size())  # 使连续，并改变尺寸
 
-        with torch.cuda.device(self.device_id):
+        with torch.cuda.device(0):
             self.forward_model.cuda()
             recon_var = nn.Parameter(x.cuda(), requires_grad=True)  # 使得recon_var为一个参数
 
