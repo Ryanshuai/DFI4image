@@ -127,13 +127,9 @@ class Vgg19g(nn.Module):
 
 
 class vgg19g_torch(object):
-    def __init__(self, **options):
-        device_id = options.get('device_id', 0)
+    def __init__(self):
         self.forward_model = Vgg19g(pretrained = True)
         self.forward_model.eval()
-
-        # Put it on the GPU
-        self.device_id = device_id
 
         # Transformations for the model
         mean = torch.Tensor((0.485, 0.456, 0.406))

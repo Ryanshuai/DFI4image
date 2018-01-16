@@ -1,11 +1,7 @@
 
 import numpy
-import deepmodels_torch
+import deepmodel
 import json
-import time
-import argparse
-import os.path
-import subprocess
 import utils
 
 with open('datasets/lfw/lfw_binary_attributes.json') as f: lfw=json.load(f)
@@ -41,92 +37,59 @@ def make_manifolds(a,s=[],t=[],N=10,X=None,visualize=False):
     return [lfw_filelist[x] for x in X],[[lfw_filelist[x] for x in y] for y in P],[[lfw_filelist[x] for x in y] for y in Q]
 
 if __name__=='__main__':
-    # configure by command-line arguments
-    parser=argparse.ArgumentParser(description='Generate LFW face transformations.',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--backend',type=str,default='caffe+scipy',choices=['torch','caffe+scipy'],help='reconstruction implementation')
-    parser.add_argument('--device_id',type=int,default=0,help='zero-indexed CUDA device')
-    parser.add_argument('--K',type=int,default=100,help='number of nearest neighbors')
-    parser.add_argument('--scaling',type=str,default='beta',choices=['none','beta'],help='type of step scaling')
-    parser.add_argument('--iter',type=int,default=500,help='number of reconstruction iterations')
-    parser.add_argument('--postprocess',type=str,default='color',help='comma-separated list of postprocessing operations')
-    parser.add_argument('--delta',type=str,default='0.4',help='comma-separated list of interpolation steps')
-    config=parser.parse_args()
-    postprocess=set(config.postprocess.split(','))
-    print(json.dumps(config.__dict__))
+
+    K = 100
+    max_iter = 500
+    delta_list = [0.4]
+    color_postprocess = True
+
+    test_image_paths=['images/lfw_aegan/Melchor_Cob_Castro/Melchor_Cob_Castro_0001.jpg',
+                      'images/lfw_aegan/John_Stockton/John_Stockton_0001.jpg',
+                      'images/lfw_aegan/Ralf_Schumacher/Ralf_Schumacher_0005.jpg',
+                      'images/lfw_aegan/Charlton_Heston/Charlton_Heston_0002.jpg',
+                      'images/lfw_aegan/Tom_Ridge/Tom_Ridge_0032.jpg',
+                      'images/lfw_aegan/Silvio_Berlusconi/Silvio_Berlusconi_0023.jpg']
+
+    attribute_pairs=[('Youth', 'Senior'), ('Mouth Closed', 'Mouth Slightly Open'),
+                     ('Mouth Closed', 'Mouth Slightly Open'),('Narrow Eyes', 'Eyes Open'), ('Pale Skin', 'Flushed Face'),
+                     ('Frowning', 'Smiling'),('No Beard', 'Mustache'), ('No Eyewear', 'Eyeglasses')]
 
     # load CUDA model
-    minimum_resolution=200
-    model=deepmodels_torch.vgg19g_torch(device_id=config.device_id)
+    model=deepmodel.vgg19g_torch()
 
-    # download AEGAN cropped+aligned LFW (if needed)
-    if not os.path.exists('images/lfw_aegan'):
-        url='https://www.dropbox.com/s/isz4ske2kheuwgr/lfw_aegan.tar.gz?dl=1'
-        subprocess.check_call(['wget',url,'-O','lfw_aegan.tar.gz'])
-        subprocess.check_call(['tar','xzf','lfw_aegan.tar.gz'])
-        subprocess.check_call(['rm','lfw_aegan.tar.gz'])
-
-    # read test data
-    data=numpy.load('tests/dmt2-lfw-multiple-attribute-test.npz')
-    pairs=list(data['pairs'][[0,1,2,4,5,6]]) # skip flushed face, not interesting
-    X=data['X']
-
-    # comment out the line below to generate all the test images
-    X=X[:1]
-
-    # Set the free parameters
-    # Note: for LFW, 0.4*8.82 is approximately equivalent to beta=0.4
-    K=config.K
-    delta_params=[float(x.strip()) for x in config.delta.split(',')]
-
-    t0=time.time()
     result=[]
     original=[]
     # for each test image
-    for i in range(len(X)):
+    for path in test_image_paths:
         result.append([])
-        xX=X[i].decode().replace('lfw','lfw_aegan')
-        o=utils.im_read(xX)
-        image_dims=o.shape[:2]
-        if min(image_dims)<minimum_resolution:
-            s=float(minimum_resolution)/min(image_dims)
-            image_dims=(int(round(image_dims[0]*s)),int(round(image_dims[1]*s)))
-            o=utils.im_resize(o,image_dims)
-        XF=model.get_Deep_Feature([o]) #求图片的平均的特征向量
-        original.append(o)
+        im=utils.im_read(path)
+        image_size=im.shape[:2]
+        XF=model.get_Deep_Feature([im]) #求图片的平均的特征向量#TODO
+        original.append(im)
         # for each transform
-        for j,(a,b) in enumerate(pairs):
-            a = a.decode()
-            b = b.decode()
-            _,P,Q=make_manifolds(b,[a],[],X=X[i:i+1],N=1)
+        for j,(a,b) in enumerate(attribute_pairs):
+            _,P,Q=make_manifolds(b,[a],[],X=path,N=1)
             P=P[0]
             Q=Q[0]
             xP=[x.replace('lfw','lfw_aegan') for x in P]
             xQ=[x.replace('lfw','lfw_aegan') for x in Q]
-            PF=model.get_Deep_Feature(utils.image_feed(xP[:K],image_dims))
-            QF=model.get_Deep_Feature(utils.image_feed(xQ[:K],image_dims))
-            if config.scaling=='beta':
+            PF=model.get_Deep_Feature(utils.im_generator(xP[:K],image_size))
+            QF=model.get_Deep_Feature(utils.im_generator(xQ[:K],image_size))
+            if True:
                 WF=(QF-PF)/((QF-PF)**2).mean()
-            elif config.scaling=='none':
+            else:
                 WF=(QF-PF)
-            max_iter=config.iter
-            init=o
             # for each interpolation step
-            for delta in delta_params:
-                print(xX,b,delta)
-                t2=time.time()
-                Y=model.Deep_Feature_inverse(XF+WF*delta,max_iter=max_iter,initial_image=init)
-                t3=time.time()
-                print('{} minutes to reconstruct'.format((t3-t2)/60.0))
+            for delta in delta_list:
+                print(path,b,delta)
+                Y=model.Deep_Feature_inverse(XF+WF*delta,max_iter=max_iter,initial_image=im)
                 result[-1].append(Y)
-                max_iter=config.iter//2
-                init=Y
+
     result=numpy.asarray(result)
     original=numpy.asarray(original)
-    if 'color' in postprocess:
+    if color_postprocess:
         result=utils.color_match(numpy.expand_dims(original,1),result)
     m=utils.montage(numpy.concatenate([numpy.expand_dims(original,1),result],axis=1))
     utils.im_write('results/demo1.png',m)
     print('Output is results/demo1.png')
-    t1=time.time()
-    print('{} minutes ({} minutes per image).'.format((t1-t0)/60.0,(t1-t0)/60.0/result.shape[0]/result.shape[1]))
 
