@@ -49,17 +49,6 @@ def unfit_from_quantum(img, orig_size, quantum = 64):
     return res
 
 
-class Dataset(torch.utils.data.TensorDataset):
-    def __init__(self, x, transform):
-        super(Dataset, self).__init__(x, torch.zeros(x.size(0)))
-        self.transform = transform
-
-    def __getitem__(self, index):
-        input = self.transform(self.data_tensor[index])
-        target = self.target_tensor[index]
-        return input, target
-
-
 class TVLoss(nn.Module):
     def __init__(self, eps=1e-3, beta=2):
         super(TVLoss, self).__init__()

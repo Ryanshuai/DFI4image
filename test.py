@@ -1,4 +1,3 @@
-
 import numpy
 import model
 import json
@@ -48,7 +47,7 @@ if __name__=='__main__':
                      ('Frowning', 'Smiling'),('No Beard', 'Mustache'), ('No Eyewear', 'Eyeglasses')]
 
     # load CUDA model
-    model=model.vgg19g_torch()
+    vgg=model.vgg19g_torch()
 
     result=[]
     original=[]
@@ -57,13 +56,13 @@ if __name__=='__main__':
         result.append([])
         im=utils.im_read(path)
         image_size=im.shape[:2]
-        XF=model.get_Deep_Feature([im]) #求图片的平均的特征向量#TODO
+        XF=vgg.get_Deep_Feature([im]) #求图片的平均的特征向量#TODO
         original.append(im)
         # for each transform
         for j, (a,b) in enumerate(attribute_pairs):
             _,P,Q=make_manifolds(b,[a],im_path=path)
-            PF=model.get_Deep_Feature(utils.im_generator(P[:K],image_size))
-            QF=model.get_Deep_Feature(utils.im_generator(Q[:K],image_size))
+            PF=vgg.get_Deep_Feature(utils.im_generator(P[:K], image_size))
+            QF=vgg.get_Deep_Feature(utils.im_generator(Q[:K], image_size))
             if True:
                 WF=(QF-PF)/((QF-PF)**2).mean()
             else:
@@ -71,7 +70,7 @@ if __name__=='__main__':
             # for each interpolation step
             for delta in delta_list:
                 print(path,b,delta)
-                Y=model.Deep_Feature_inverse(XF+WF*delta,max_iter=max_iter,initial_image=im)
+                Y=vgg.Deep_Feature_inverse(XF + WF * delta, max_iter=max_iter, initial_image=im)
                 result[-1].append(Y)
 
     result=numpy.asarray(result)
