@@ -1,37 +1,8 @@
 
 import numpy
-import os.path
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageFont
-
-
-
-def im_read(ipath,dtype=numpy.float32):
-    '''
-    Returns a H x W x 3 RGB image in the range of [0,1].
-    '''
-    img=PIL.Image.open(ipath)
-    if img.mode!='RGB':
-        img=img.convert('RGB')
-    return numpy.asarray(img,dtype=dtype)/255.0
-
-def im_write(opath,I,**kwargs):
-    '''
-    Given a H x W x 3 RGB image it is clipped to the range [0,1] and
-    written to an 8-bit image file.
-    '''
-    img=PIL.Image.fromarray((I*255).clip(0,255).astype(numpy.uint8))
-    ext=os.path.splitext(opath)[1]
-    if ext=='.jpg':
-        quality=kwargs['quality'] if 'quality' in kwargs else 95
-        img.save(opath,quality=quality,optimize=True)
-    elif ext=='.png':
-        img.save(opath)
-    else:
-        # I do not want to save unknown extensions because there is no
-        # expectation that the default save options are reasonable.
-        raise ValueError('Unknown image extension ({})'.format(ext))
 
 def im_resize(I,shape):
     image=PIL.Image.fromarray((I*255).clip(0,255).astype(numpy.uint8))
@@ -40,6 +11,24 @@ def im_resize(I,shape):
     else:
         image=image.resize((shape[1],shape[0]),PIL.Image.LANCZOS)
     return numpy.asarray(image)/255.0
+
+def im_read(image_path,dtype=numpy.float32):
+    img=PIL.Image.open(image_path)
+    if img.mode!='RGB':
+        img=img.convert('RGB')
+    return numpy.asarray(img,dtype=dtype)/255.0
+
+def im_write(opath,image):
+    img=PIL.Image.fromarray((image*255).clip(0,255).astype(numpy.uint8))
+    img.save(opath)
+
+def im_generator(paths,image_size):
+    for x in paths:
+        I=im_read(x)
+        if I.shape[:2]!=image_size:
+            yield im_resize(I,tuple(image_size))
+        else:
+            yield I
 
 def montage(M,sep=0,canvas_value=0):
     # row X col X H X W X C
@@ -69,17 +58,6 @@ def concatenate(X,axis,canvas_value=0,gravity=(-1)):
         else:
             Y.append(numpy.pad(x,[(0,newshape[i]-x.shape[i]) for i in range(x.ndim)],'constant',constant_values=canvas_value))
     return numpy.concatenate(Y,axis=axis)
-
-def image_feed(S,image_dims):
-    '''
-    Given a list of file paths and a 2-tuple of (H, W), yields H x W x 3 images.
-    '''
-    for x in S:
-        I=im_read(x)
-        if I.shape[:2]!=image_dims:
-            yield im_resize(I,tuple(image_dims))
-        else:
-            yield I
 
 def color_match(A,B):
     '''
