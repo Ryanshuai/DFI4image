@@ -1,6 +1,6 @@
 
 import numpy
-import deepmodel
+import model
 import json
 import utils
 
@@ -11,10 +11,10 @@ def make_manifolds(a,s,im_path,t=[],visualize=False):
     a is the target attribute, s are exclusive attributes for the source,
     t are exclusive attributes for the target.
     '''
-    S={k:set(v) for k,v in lfw['attribute_members'].items()}
-    T=lfw['attribute_gender_members']
-    G=set(T[lfw['attribute_gender'][a]])
-    X=lfw_filelist.index(im_path)
+    S={k:set(v) for k,v in lfw['attribute_members'].items()}  #所有属性的集合 类型是字典
+    T=lfw['attribute_gender_members']  #
+    G=set(T[lfw['attribute_gender'][a]])  #G是个male的集合，因为a是Senior
+    X=lfw_filelist.index(im_path)  #数字，索引
 
     def distfn(y,z):
         fy=[True if y in S[b] else False for b in sorted(S.keys())]
@@ -48,7 +48,7 @@ if __name__=='__main__':
                      ('Frowning', 'Smiling'),('No Beard', 'Mustache'), ('No Eyewear', 'Eyeglasses')]
 
     # load CUDA model
-    model=deepmodel.vgg19g_torch()
+    model=model.vgg19g_torch()
 
     result=[]
     original=[]
