@@ -6,7 +6,7 @@ import utils
 
 with open('datasets/lfw/lfw_binary_attributes.json') as f: lfw=json.load(f)
 with open('datasets/lfw/filelist.txt','r') as f: lfw_filelist=['images/'+x.strip() for x in f.readlines()]
-def make_manifolds(a,s,X,t=[],visualize=False):
+def make_manifolds(a,s,im_path,t=[],visualize=False):
     '''
     a is the target attribute, s are exclusive attributes for the source,
     t are exclusive attributes for the target.
@@ -14,7 +14,7 @@ def make_manifolds(a,s,X,t=[],visualize=False):
     S={k:set(v) for k,v in lfw['attribute_members'].items()}
     T=lfw['attribute_gender_members']
     G=set(T[lfw['attribute_gender'][a]])
-    X=lfw_filelist.index(X)
+    X=lfw_filelist.index(im_path)
 
     def distfn(y,z):
         fy=[True if y in S[b] else False for b in sorted(S.keys())]
@@ -53,15 +53,15 @@ if __name__=='__main__':
     result=[]
     original=[]
     # for each test image
-    for path in test_image_paths:
+    for i, path in enumerate(test_image_paths):
         result.append([])
         im=utils.im_read(path)
         image_size=im.shape[:2]
         XF=model.get_Deep_Feature([im]) #求图片的平均的特征向量#TODO
         original.append(im)
         # for each transform
-        for j,(a,b) in enumerate(attribute_pairs):
-            _,P,Q=make_manifolds(b,[a],X=path)
+        for j, (a,b) in enumerate(attribute_pairs):
+            _,P,Q=make_manifolds(b,[a],im_path=path)
             PF=model.get_Deep_Feature(utils.im_generator(P[:K],image_size))
             QF=model.get_Deep_Feature(utils.im_generator(Q[:K],image_size))
             if True:
@@ -78,7 +78,6 @@ if __name__=='__main__':
     original=numpy.asarray(original)
     if color_postprocess:
         result=utils.color_match(numpy.expand_dims(original,1),result)
-    m=utils.montage(numpy.concatenate([numpy.expand_dims(original,1),result],axis=1))
     utils.im_write('results/demo1.png',m)
     print('Output is results/demo1.png')
 
