@@ -86,10 +86,6 @@ class vgg19g_DeepFeature(object):
         self.tv_lambda = 10
         self.max_iter = 500
 
-        self.reverse_transform = tv.transforms.Compose([
-            tv.transforms.Lambda(lambda img: img.clamp(0, 1)),
-        ])
-
     def get_Deep_Feature(self, image_list):  #得到一个图片的list的深度特征
         # Storage for features
         flattened_features = None
