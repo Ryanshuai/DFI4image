@@ -47,7 +47,7 @@ if __name__=='__main__':
                      ('Frowning', 'Smiling'),('No Beard', 'Mustache'), ('No Eyewear', 'Eyeglasses')]
 
     # load CUDA model
-    vgg=model.vgg19g_torch()
+    vgg=model.vgg19g_DeepFeature()
 
     result=[]
     original=[]
@@ -56,7 +56,7 @@ if __name__=='__main__':
         result.append([])
         im=utils.im_read(path)
         image_size=im.shape[:2]
-        XF=vgg.get_Deep_Feature([im]) #求图片的平均的特征向量#TODO
+        XF=vgg.get_Deep_Feature([im]) #求一个图片的list的平均的特征向量#TODO
         original.append(im)
         # for each transform
         for j, (a,b) in enumerate(attribute_pairs):
