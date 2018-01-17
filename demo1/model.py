@@ -7,22 +7,7 @@ import torch.nn as nn
 import torchvision as tv
 from torch.autograd import Variable
 from collections import OrderedDict
-from data_loader import  get_DataLoader
-
-
-def unfit_from_quantum(img, orig_size, quantum = 64):
-    if orig_size[1] % int(quantum) == 0:
-        pad_w = 0
-    else:
-        pad_w = int((quantum - orig_size[1] % int(quantum)) / 2)
-
-    if orig_size[2] % int(quantum) == 0:
-        pad_h = 0
-    else:
-        pad_h = int((quantum - orig_size[2] % int(quantum)) / 2)
-
-    res = img[:, pad_w:(pad_w + orig_size[1]), pad_h:(pad_h + orig_size[2])].clone()
-    return res
+from data_loader import  get_DataLoader, Transform
 
 
 class TVLoss(nn.Module):
@@ -96,29 +81,26 @@ class vgg19g_DeepFeature(object):
         self.forward_model = Vgg19g(pretrained = True)
         self.forward_model.eval()
 
-        # Transformations for the model
-        mean = torch.Tensor((0.485, 0.456, 0.406))
-        stdv = torch.Tensor((0.229, 0.224, 0.225))
-
-        self.reverse_transform = tv.transforms.Compose([
-          tv.transforms.Normalize(mean=(-mean/stdv), std=(1/stdv)),
-          tv.transforms.Lambda(lambda img: img.clamp(0, 1)),
-        ])
-
+        self.transform = Transform()
         # Parameters
         self.tv_lambda = 10
         self.max_iter = 500
+
+        self.reverse_transform = tv.transforms.Compose([
+            tv.transforms.Lambda(lambda img: img.clamp(0, 1)),
+        ])
 
     def get_Deep_Feature(self, image_list):  #得到一个图片的list的深度特征
         # Storage for features
         flattened_features = None
 
-        loader = get_DataLoader(image_list)
+        x = torch.from_numpy(numpy.array(list(image_list))).permute(0, 3, 1, 2)  # 这行想去掉TODO
+        loader = get_DataLoader(x,self.transform.forward_transform)
 
-        with torch.cuda.device(0):
+        with torch.cuda.device(3):
             self.forward_model.cuda()
 
-            for i, (input, _) in enumerate(loader):
+            for i, input in enumerate(loader):
                 #print('Image %d of %d' % (i+1, x.size(0)))
                 input_var = Variable(input, volatile=True).cuda()
                 feature_vars = self.forward_model(input_var)
@@ -131,7 +113,6 @@ class vgg19g_DeepFeature(object):
                 del input_var
                 del feature_vars
 
-            x = torch.from_numpy(numpy.array(list(image_list))).permute(0, 3, 1, 2)  # 这行想去掉TODO
             flattened_features.div_(x.size(0))
 
             flattened_features = flattened_features.cpu()
@@ -145,10 +126,10 @@ class vgg19g_DeepFeature(object):
         x = x.permute(2, 0, 1)  # 交换轴
         orig_size = x.size()
 
-        x = self.forward_transform(x)  #
+        x = self.transform.forward_transform(x)  #
         x = x.contiguous().view(1, *x.size())  # 使连续，并改变尺寸
 
-        with torch.cuda.device(0):
+        with torch.cuda.device(3):
             self.forward_model.cuda()
             recon_var = nn.Parameter(x.cuda(), requires_grad=True)  # 使得recon_var为一个参数
 
@@ -202,7 +183,22 @@ class vgg19g_DeepFeature(object):
             recon = recon_var.data[0].cpu()
 
         # Return the new image
-        recon = self.reverse_transform(recon)
+        def unfit_from_quantum(img, orig_size, quantum=64):
+        # get the image with size of orig_size from img
+            if orig_size[1] % int(quantum) == 0:
+                pad_w = 0
+            else:
+                pad_w = int((quantum - orig_size[1] % int(quantum)) / 2)
+
+            if orig_size[2] % int(quantum) == 0:
+                pad_h = 0
+            else:
+                pad_h = int((quantum - orig_size[2] % int(quantum)) / 2)
+
+            res = img[:, pad_w:(pad_w + orig_size[1]), pad_h:(pad_h + orig_size[2])].clone()
+            return res
+
+        recon = self.transform.reverse_transform(recon)
         recon = unfit_from_quantum(recon, orig_size)
         recon = recon.squeeze()
         recon = recon.permute(1, 2, 0)

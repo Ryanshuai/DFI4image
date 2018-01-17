@@ -30,12 +30,18 @@ class FitToQuantum():
         return res
 
 
-mean = torch.Tensor((0.485, 0.456, 0.406))
-stdv = torch.Tensor((0.229, 0.224, 0.225))
-forward_transform = tv.transforms.Compose([
-    tv.transforms.Normalize(mean=mean, std=stdv),
-    FitToQuantum(),
-])
+class Transform(object):
+    def __init__(self):
+        mean = torch.Tensor((0.485, 0.456, 0.406))
+        stdv = torch.Tensor((0.229, 0.224, 0.225))
+        self.forward_transform = tv.transforms.Compose([
+                tv.transforms.Normalize(mean=mean, std=stdv),
+                FitToQuantum()])
+
+        self.reverse_transform = tv.transforms.Compose([
+            tv.transforms.Normalize(mean=(-mean / stdv), std=(1 / stdv)),
+            tv.transforms.Lambda(lambda img: img.clamp(0, 1))])
+
 
 class Dataset(torch.utils.data.TensorDataset):
     def __init__(self, x, transform):
@@ -45,13 +51,12 @@ class Dataset(torch.utils.data.TensorDataset):
     def __getitem__(self, index):
         input = self.transform(self.data_tensor[index])
         target = self.target_tensor[index]
-        return input, target
+        return input
 
 
-def get_DataLoader(X):
-    x = torch.from_numpy(numpy.array(list(X))).permute(0, 3, 1, 2)
+def get_DataLoader(x, transform):
     loader = torch.utils.data.DataLoader(
-        Dataset(x, transform=forward_transform),
+        Dataset(x, transform=transform),
         batch_size=1,
         pin_memory=True,
     )
