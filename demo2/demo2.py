@@ -8,6 +8,7 @@ import time
 timestamp=int(round(time.time()))
 import numpy
 import deepmodels_torch
+import deepmodels
 import json
 import os.path
 import argparse
@@ -18,7 +19,7 @@ import utils
 def fit_submanifold_landmarks_to_image(template,original,Xlm,face_d,face_p,landmarks=list(range(68))):
   '''
   Fit the submanifold to the template and take the top-K.
-  找到
+  猜测：让图片变形到需要的模板形状
   Xlm is a N x 68 x 2 list of landmarks.
   '''
   lossX=numpy.empty((len(Xlm),),dtype=numpy.float64)
@@ -79,7 +80,7 @@ if __name__=='__main__':
   t0=time.time()
   opathlist=[]
   # for each test image
-  for i in range(len(X)):
+  for i in range(len(X)):  #X是程序的输入图片
     xX=X[i]
     prefix_path=os.path.splitext(xX)[0]
     template,original=alignface.detect_landmarks(xX,face_d,face_p) #检测的关键点，和归一化的人脸图片
@@ -88,11 +89,12 @@ if __name__=='__main__':
       s=float(minimum_resolution)/min(image_dims)
       image_dims=(int(round(image_dims[0]*s)),int(round(image_dims[1]*s)))
       original=imageutils.resize(original,image_dims)
-    XF=model.mean_F([original]) #没看懂,应该是求原图片的特征向量
+    XF=model.mean_F([original]) #求图片的列表的深度特征
     XA=classifier.score([xX])[0] #没看懂
     print(xX,', '.join(k for i,k in enumerate(fields) if XA[i]>=0))
 
     # select positive and negative sets based on gender and mouth
+    #选择了符合属性的前4K张
     if config.method=='older':
       cP=[(gender,XA[gender]>=0),(smile,XA[smile]>=0),(fields.index('Young'),True)]
       cQ=[(gender,XA[gender]>=0),(smile,XA[smile]>=0),(fields.index('Young'),False)]
@@ -111,6 +113,7 @@ if __name__=='__main__':
       continue
 
     # fit the best 4K database images to input image
+    #选择了修正后landmark对应最好的前K张
     Plm=classifier.lookup_landmarks(P[:4*K])
     Qlm=classifier.lookup_landmarks(Q[:4*K])
     idxP,lossP,MP=fit_submanifold_landmarks_to_image(template,original,Plm,face_d,face_p)
