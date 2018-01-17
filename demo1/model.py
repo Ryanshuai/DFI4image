@@ -7,31 +7,7 @@ import torch.nn as nn
 import torchvision as tv
 from torch.autograd import Variable
 from collections import OrderedDict
-
-
-class FitToQuantum():
-    def __init__(self, quantum=64):
-        self.quantum = float(quantum)
-
-    def __call__(self, img):
-        quantum = self.quantum
-        size = img.size()
-
-        if img.size(1) % int(quantum) == 0:
-            pad_w = 0
-        else:
-            pad_w = int((quantum - img.size(1) % int(quantum)) / 2)
-
-        if img.size(2) % int(quantum) == 0:
-            pad_h = 0
-        else:
-            pad_h = int((quantum - img.size(2) % int(quantum)) / 2)
-
-        res = torch.zeros(size[0],
-            int(math.ceil(size[1]/quantum) * quantum),
-            int(math.ceil(size[2]/quantum) * quantum))
-        res[:, pad_w:(pad_w + size[1]), pad_h:(pad_h + size[2])].copy_(img)
-        return res
+from data_loader import  get_DataLoader
 
 
 def unfit_from_quantum(img, orig_size, quantum = 64):
@@ -115,7 +91,7 @@ class Vgg19g(nn.Module):
         return features_1, features_2, features_3
 
 
-class vgg19g_torch(object):
+class vgg19g_DeepFeature(object):
     def __init__(self):
         self.forward_model = Vgg19g(pretrained = True)
         self.forward_model.eval()
@@ -124,10 +100,6 @@ class vgg19g_torch(object):
         mean = torch.Tensor((0.485, 0.456, 0.406))
         stdv = torch.Tensor((0.229, 0.224, 0.225))
 
-        self.forward_transform = tv.transforms.Compose([
-          tv.transforms.Normalize(mean=mean, std=stdv),
-          FitToQuantum(),
-        ])
         self.reverse_transform = tv.transforms.Compose([
           tv.transforms.Normalize(mean=(-mean/stdv), std=(1/stdv)),
           tv.transforms.Lambda(lambda img: img.clamp(0, 1)),
@@ -137,17 +109,11 @@ class vgg19g_torch(object):
         self.tv_lambda = 10
         self.max_iter = 500
 
-    def get_Deep_Feature(self, X):  #得到一个图片X的深度特征
+    def get_Deep_Feature(self, image_list):  #得到一个图片的list的深度特征
         # Storage for features
         flattened_features = None
 
-        # Make dataloader for data
-        x = torch.from_numpy(numpy.array(list(X))).permute(0, 3, 1, 2)
-        loader = torch.utils.data.DataLoader(
-            Dataset(x, transform = self.forward_transform),
-            batch_size = 1,
-            pin_memory = True,
-        )
+        loader = get_DataLoader(image_list)
 
         with torch.cuda.device(0):
             self.forward_model.cuda()
@@ -165,6 +131,7 @@ class vgg19g_torch(object):
                 del input_var
                 del feature_vars
 
+            x = torch.from_numpy(numpy.array(list(image_list))).permute(0, 3, 1, 2)  # 这行想去掉TODO
             flattened_features.div_(x.size(0))
 
             flattened_features = flattened_features.cpu()
