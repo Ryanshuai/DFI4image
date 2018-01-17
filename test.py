@@ -1,20 +1,19 @@
-
 import numpy
-import deepmodel
+import model
 import json
 import utils
 
 with open('datasets/lfw/lfw_binary_attributes.json') as f: lfw=json.load(f)
 with open('datasets/lfw/filelist.txt','r') as f: lfw_filelist=['images/'+x.strip() for x in f.readlines()]
-def make_manifolds(a,s,X,t=[],visualize=False):
+def make_manifolds(a,s,im_path,t=[],visualize=False):
     '''
     a is the target attribute, s are exclusive attributes for the source,
     t are exclusive attributes for the target.
     '''
-    S={k:set(v) for k,v in lfw['attribute_members'].items()}
-    T=lfw['attribute_gender_members']
-    G=set(T[lfw['attribute_gender'][a]])
-    X=lfw_filelist.index(X)
+    S={k:set(v) for k,v in lfw['attribute_members'].items()}  #所有属性的集合 类型是字典
+    T=lfw['attribute_gender_members']  #
+    G=set(T[lfw['attribute_gender'][a]])  #G是个male的集合，因为a是Senior
+    X=lfw_filelist.index(im_path)  #数字，索引
 
     def distfn(y,z):
         fy=[True if y in S[b] else False for b in sorted(S.keys())]
@@ -48,22 +47,22 @@ if __name__=='__main__':
                      ('Frowning', 'Smiling'),('No Beard', 'Mustache'), ('No Eyewear', 'Eyeglasses')]
 
     # load CUDA model
-    model=deepmodel.vgg19g_torch()
+    vgg=model.vgg19g_torch()
 
     result=[]
     original=[]
     # for each test image
-    for path in test_image_paths:
+    for i, path in enumerate(test_image_paths):
         result.append([])
         im=utils.im_read(path)
         image_size=im.shape[:2]
-        XF=model.get_Deep_Feature([im]) #求图片的平均的特征向量#TODO
+        XF=vgg.get_Deep_Feature([im]) #求图片的平均的特征向量#TODO
         original.append(im)
         # for each transform
-        for j,(a,b) in enumerate(attribute_pairs):
-            _,P,Q=make_manifolds(b,[a],X=path)
-            PF=model.get_Deep_Feature(utils.im_generator(P[:K],image_size))
-            QF=model.get_Deep_Feature(utils.im_generator(Q[:K],image_size))
+        for j, (a,b) in enumerate(attribute_pairs):
+            _,P,Q=make_manifolds(b,[a],im_path=path)
+            PF=vgg.get_Deep_Feature(utils.im_generator(P[:K], image_size))
+            QF=vgg.get_Deep_Feature(utils.im_generator(Q[:K], image_size))
             if True:
                 WF=(QF-PF)/((QF-PF)**2).mean()
             else:
@@ -71,14 +70,13 @@ if __name__=='__main__':
             # for each interpolation step
             for delta in delta_list:
                 print(path,b,delta)
-                Y=model.Deep_Feature_inverse(XF+WF*delta,max_iter=max_iter,initial_image=im)
+                Y=vgg.Deep_Feature_inverse(XF + WF * delta, max_iter=max_iter, initial_image=im)
                 result[-1].append(Y)
 
     result=numpy.asarray(result)
     original=numpy.asarray(original)
     if color_postprocess:
         result=utils.color_match(numpy.expand_dims(original,1),result)
-    m=utils.montage(numpy.concatenate([numpy.expand_dims(original,1),result],axis=1))
     utils.im_write('results/demo1.png',m)
     print('Output is results/demo1.png')
 
