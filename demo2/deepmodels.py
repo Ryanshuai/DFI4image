@@ -321,7 +321,7 @@ class facemodel_attributes(object):
   def lookup_scores(self,X,**options):
     idx=[self.map_name[x] for x in X]
     return self._scores[idx]
-  def lookup_landmarks(self,X,**options):
+  def lookup_landmarks(self,X,**options):  #就是返回一个land_mark的函数
     idx=[self.map_name[x] for x in X]
     return self._landmarks[idx]
   def score(self,X,**options):
