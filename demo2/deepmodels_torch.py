@@ -18,13 +18,6 @@ import torchvision as tv
 from torch.autograd import Variable
 
 
-model_urls = {
-    'recon_g345': 'recon-g345-d36b8ec0.pth',
-    'recon_g345_adv18': 'recon-g345-adv18-6f7ababc.pth',
-    'recon_g345_d0.2': 'recon-g345-d0.2-4239ba22.pth',
-}
-
-
 class FitToQuantum():
   def __init__(self, quantum=64):
     self.quantum = float(quantum)

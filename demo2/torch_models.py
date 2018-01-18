@@ -1,7 +1,5 @@
 import torch
-import torchvision as tv
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
 from collections import OrderedDict
 
@@ -58,49 +56,6 @@ class Vgg19g(nn.Module):
     features_2 = self.features_2(features_1)
     features_3 = self.features_3(features_2)
     return features_1, features_2, features_3
-
-
-class _PoolingBlock(nn.Sequential):
-  def __init__(self, n_convs, n_input_filters, n_output_filters, drop_rate):
-    super(_PoolingBlock, self).__init__()
-    for i in range(n_convs):
-      self.add_module('conv.%d' % (i+1), nn.Conv2d(n_input_filters if i == 0 else n_output_filters, n_output_filters, kernel_size=3, padding=1))
-      self.add_module('norm.%d' % (i+1), nn.BatchNorm2d(n_output_filters))
-      self.add_module('relu.%d' % (i+1), nn.ReLU(inplace=True))
-      if drop_rate > 0:
-        self.add_module('drop.%d' % (i+1), nn.Dropout(p=drop_rate))
-
-
-class _TransitionUp(nn.Sequential):
-  def __init__(self, n_input_filters, n_output_filters):
-    super(_TransitionUp, self).__init__()
-    self.add_module('unpool.conv', nn.ConvTranspose2d(n_input_filters, n_output_filters, kernel_size=1, stride=2, output_padding=1))
-    self.add_module('unpool.norm', nn.BatchNorm2d(n_output_filters))
-
-class PatchDiscModel(nn.Sequential):
-  def __init__(self, drop_rate = 0):
-    super(PatchDiscModel, self).__init__()
-    self.add_module('patch_conv1', nn.Conv2d(3, 64, kernel_size=3, padding=1))
-    self.add_module('patch_norm1', nn.BatchNorm2d(64))
-    self.add_module('patch_relu1', nn.ReLU(inplace=True))
-    if drop_rate > 0:
-      self.add_module('patch_drop1', nn.Dropout(p=drop_rate))
-    self.add_module('patch_conv2', nn.Conv2d(64, 64, kernel_size=3, padding=1))
-    self.add_module('patch_norm2', nn.BatchNorm2d(64))
-    self.add_module('patch_relu2', nn.ReLU(inplace=True))
-    if drop_rate > 0:
-      self.add_module('patch_drop2', nn.Dropout(p=drop_rate))
-    self.add_module('patch_pool', nn.MaxPool2d(2, 2))
-    self.add_module('patch_conv3', nn.Conv2d(64, 64, kernel_size=3, padding=1))
-    self.add_module('patch_norm3', nn.BatchNorm2d(64))
-    self.add_module('patch_relu3', nn.ReLU(inplace=True))
-    if drop_rate > 0:
-      self.add_module('patch_drop3', nn.Dropout(p=drop_rate))
-    self.add_module('patch_conv4', nn.Conv2d(64, 1, kernel_size=3, padding=1))
-
-  def forward(self, x):
-    out = super(PatchDiscModel, self).forward(x)
-    return F.sigmoid(out)
 
 class ReconModel(nn.Module):
   def __init__(self, drop_rate=0):
@@ -184,39 +139,3 @@ class ReconModel(nn.Module):
     recon0 = self.recon0(recon1)
 
     return recon0
-
-
-class PatchDiscLoss(nn.Module):
-  def __init__(self):
-    super(PatchDiscLoss, self).__init__()
-    self.bce_loss = nn.BCELoss()
-
-  def loss_names(self):
-    return ('d-disc',)
-
-  def forward(self, input_var, target_val):
-    input_var = input_var.view(-1)
-    target = torch.Tensor(input_var.data.size()).type_as(input_var.data)
-    target.fill_(target_val)
-    target_var = Variable(target)
-    target_var.data.fill_(target_val)
-    return self.bce_loss(input_var, target_var)
-
-class ReconLoss(nn.Module):
-  def __init__(self, lamda):
-    super(ReconLoss, self).__init__()
-    self.lamda = lamda
-    self.disc_loss = PatchDiscLoss()
-
-  def loss_names(self):
-    return ('c3diff', 'c4diff', 'c5diff', 'g-disc')
-
-  def forward(self, x, y=None):
-    recon_var, conv3diff, conv4diff, conv5diff, disc_output_var = x
-
-    return torch.cat([
-      torch.norm(conv3diff)**2 / conv3diff.nelement(),
-      torch.norm(conv4diff)**2 / conv4diff.nelement(),
-      torch.norm(conv5diff)**2 / conv5diff.nelement(),
-      self.lamda * self.disc_loss(disc_output_var, 1)
-    ])
