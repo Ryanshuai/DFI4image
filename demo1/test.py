@@ -30,39 +30,42 @@ def make_manifolds(a,s,im_path,t=[],visualize=False):
 
 if __name__=='__main__':
 
-    K = 100
+    K = 20
     max_iter = 500
     delta_list = [0.4]
     color_postprocess = True
 
     test_image_paths=['images/lfw/Melchor_Cob_Castro/Melchor_Cob_Castro_0001.jpg',
                       'images/lfw/John_Stockton/John_Stockton_0001.jpg',
-                      'images/lfw/Ralf_Schumacher/Ralf_Schumacher_0005.jpg',
-                      'images/lfw/Charlton_Heston/Charlton_Heston_0002.jpg',
-                      'images/lfw/Tom_Ridge/Tom_Ridge_0032.jpg',
-                      'images/lfw/Silvio_Berlusconi/Silvio_Berlusconi_0023.jpg']
+                      # 'images/lfw/Ralf_Schumacher/Ralf_Schumacher_0005.jpg',
+                      # 'images/lfw/Charlton_Heston/Charlton_Heston_0002.jpg',
+                      # 'images/lfw/Tom_Ridge/Tom_Ridge_0032.jpg',
+                      # 'images/lfw/Silvio_Berlusconi/Silvio_Berlusconi_0023.jpg'
+                      ]
 
     attribute_pairs=[('Youth', 'Senior'), ('Mouth Closed', 'Mouth Slightly Open'),
-                     ('Mouth Closed', 'Mouth Slightly Open'),('Narrow Eyes', 'Eyes Open'), ('Pale Skin', 'Flushed Face'),
-                     ('Frowning', 'Smiling'),('No Beard', 'Mustache'), ('No Eyewear', 'Eyeglasses')]
+                     # ('Narrow Eyes', 'Eyes Open'), ('Pale Skin', 'Flushed Face'),
+                     # ('Frowning', 'Smiling'),('No Beard', 'Mustache'), ('No Eyewear', 'Eyeglasses')
+                     ]
 
     # load CUDA model
     vgg=model.vgg19g_DeepFeature()
 
-    result=[]
-    original=[]
+    result = []
+    original = []
     # for each test image
     for i, path in enumerate(test_image_paths):
         result.append([])
         im=utils.im_read(path)
+        im = utils.im_resize(im, (100,100))
         image_size=im.shape[:2]
-        XF=vgg.get_Deep_Feature([im]) #求一个图片的list的平均的特征向量#TODO
+        XF=vgg.get_Deep_Feature([im]) #求一个图片的list的平均的特征向量#
         original.append(im)
         # for each transform
         for j, (a,b) in enumerate(attribute_pairs):
             _,P,Q=make_manifolds(b,[a],im_path=path)
             PF=vgg.get_Deep_Feature(utils.im_generator(P[:K], image_size))
-            QF=vgg.get_Deep_Feature(utils.im_generator(Q[:K], image_size))
+            QF = vgg.get_Deep_Feature(utils.im_generator(Q[:K], image_size))
             if True:
                 WF=(QF-PF)/((QF-PF)**2).mean()
             else:
@@ -73,10 +76,12 @@ if __name__=='__main__':
                 Y=vgg.Deep_Feature_inverse(XF + WF * delta, max_iter=max_iter, initial_image=im)
                 result[-1].append(Y)
 
-    result=numpy.asarray(result)
-    original=numpy.asarray(original)
+    original = numpy.array(original)
+    result = numpy.array(result)
     if color_postprocess:
-        result=utils.color_match(numpy.expand_dims(original,1),result)
-    utils.im_write('results/demo1.png',m)
+        result=utils.color_match(numpy.expand_dims(original, 1), result)
+
+    m = utils.montage(numpy.concatenate([numpy.expand_dims(original, 1), result], axis=1))
+    utils.im_write('results/demo1.png', m)
     print('Output is results/demo1.png')
 
