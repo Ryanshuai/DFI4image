@@ -84,15 +84,15 @@ class vgg19g_DeepFeature():
         self.tv_lambda = 10
         self.max_iter = 500
 
-    def get_Deep_Feature(self, image_batch):  ##image_batch [BS,W,H,C]
+    def get_Deep_Feature(self, image_batch):  #image_batch [BS,W,H,C]
         with torch.cuda.device(0):
             deep_feature_batch = self.vgg.forward(image_batch)
             return deep_feature_batch.numpy()
 
-    def Deep_Feature_inverse(self, target_deepFeature_batch, image_batch):  ##deep_feature_batch [BS,???]
+    def Deep_Feature_inverse(self, target_deepFeature_batch, image_batch):
         with torch.cuda.device(0):
             image_batch_tenor = torch.from_numpy(numpy.array(image_batch))
-            recon_image_batch = nn.Parameter(image_batch_tenor.cuda(), requires_grad=True)  # 使得recon_var为一个参数
+            recon_image_batch = nn.Parameter(image_batch_tenor.cuda(), requires_grad=True)
 
             # Create optimizer and loss functions
             optimizer = torch.optim.LBFGS(params=[recon_image_batch], max_iter=self.max_iter)
